@@ -7,6 +7,7 @@
 import os
 from langchain_community.document_loaders import PyPDFLoader, Docx2txtLoader,TextLoader
 import torch
+from utils import *
 
 # 文档加载
 base_dir ="documents"
@@ -59,13 +60,13 @@ encode_kwargs = {
 }
 
 # 使用HuggingFaceEmbeddings加载模型
-print("🤖 正在加载嵌入模型，请稍候...")
+print_loading("正在加载嵌入模型，请稍候...")
 embedding_model = HuggingFaceEmbeddings(
     model_name=m3e_name, # use m3e-base for better performance,can also use bce-base
     model_kwargs=model_kwargs,
     encode_kwargs=encode_kwargs
 )
-print("✅ 嵌入模型加载完成")
+print_success("嵌入模型加载完成")
 
 # 3-2. storage -> vectordb
 # 向量数据库很多，但是你可以自己尝试使用FAISS, ChromaDB, Weaviate等
@@ -82,11 +83,11 @@ vectorstore_file = os.path.join(vector_db_path, "faiss_index")
 
 # 检查是否已存在向量数据库
 if os.path.exists(vectorstore_file + ".pkl"):
-    print("📂 发现已存在的向量数据库，正在加载...")
+    print_info("发现已存在的向量数据库，正在加载...")
     vectorstore = FAISS.load_local(vector_db_path, embedding_model, allow_dangerous_deserialization=True)
-    print("✅ 向量数据库加载完成")
+    print_success("向量数据库加载完成")
 else:
-    print("💾 正在构建FAISS向量数据库...")
+    print_database("正在构建FAISS向量数据库...")
     vectorstore = FAISS.from_documents(
         documents=chunked_documents,
         embedding=embedding_model
@@ -95,7 +96,7 @@ else:
     # 保存向量数据库到本地
     os.makedirs(vector_db_path, exist_ok=True)
     vectorstore.save_local(vector_db_path)
-    print("✅ 向量数据库构建并保存完成")
+    print_success("向量数据库构建并保存完成")
 
 # 4. Retrieval: 检索 chat_model,qachain
 # chat_model 使用文本生成模型，采用余弦距离来度量文本之间的相似度
@@ -115,13 +116,13 @@ from langchain.retrievers.multi_query import MultiQueryRetriever
 from pydantic import SecretStr
 load_dotenv()
 
-print("🔗 正在连接千问模型...")
+print_network("正在连接千问模型...")
 chat_model = ChatOpenAI(
     model='qwen-turbo',
     base_url=os.environ["BAILIAN_API_URL"],
     api_key=SecretStr(os.environ["BAILIAN_API_KEY"])
 )
-print("✅ 千问模型连接完成")
+print_success("千问模型连接完成")
 
 # 4-2. RetrievalQA chain
 
@@ -209,7 +210,7 @@ async def ask_question(question_request: QuestionRequest):
         )
         
     except Exception as e:
-        print(f"处理问题时出错: {str(e)}")
+        print_error(f"处理问题时出错: {str(e)}")
         raise HTTPException(status_code=500, detail=f"处理问题时出错: {str(e)}")
 
 @app.get("/health")
@@ -232,13 +233,13 @@ async def get_documents_count():
         return {"error": str(e)}
 
 if __name__ == "__main__":
-    print("🚀 正在启动文档问答系统...")
-    print("⏳ 系统正在初始化，请耐心等待...")
-    print("📚 文档加载完成")
-    print("🤖 AI模型准备就绪")
-    print("🌐 Web界面: http://localhost:8000")
-    print("📖 API文档: http://localhost:8000/docs")
-    print("✅ 系统启动完成！")
+    print_banner("智能文档问答系统")
+    print_info("系统正在初始化，请耐心等待...")
+    print_info("文档加载完成")
+    print_model("AI模型准备就绪")
+    print_server("Web界面: http://localhost:8000")
+    print_server("API文档: http://localhost:8000/docs")
+    print_success("系统启动完成！")
     
     uvicorn.run(
         app, 
