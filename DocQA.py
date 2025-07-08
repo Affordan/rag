@@ -117,12 +117,26 @@ from pydantic import SecretStr
 load_dotenv()
 
 print_network("正在连接千问模型...")
-chat_model = ChatOpenAI(
-    model='qwen-turbo',
-    base_url=os.environ["BAILIAN_API_URL"],
-    api_key=SecretStr(os.environ["BAILIAN_API_KEY"])
-)
-print_success("千问模型连接完成")
+try:
+    chat_model = ChatOpenAI(
+        model='qwen-turbo',
+        base_url=os.environ["DASHSCOPE_API_URL"],
+        api_key=SecretStr(os.environ["DASHSCOPE_API_KEY"])
+    )
+    
+    # 测试API连接
+    print_loading("测试API连接...")
+    test_response = chat_model.invoke("你好")
+    print_success("千问模型连接完成")
+    
+except KeyError as e:
+    print_error(f"环境变量未设置: {e}")
+    print_warning("请创建 .env 文件并设置 BAILIAN_API_URL 和 BAILIAN_API_KEY")
+    exit(1)
+except Exception as e:
+    print_error(f"API连接失败: {e}")
+    print_warning("请检查API配置是否正确")
+    exit(1)
 
 # 4-2. RetrievalQA chain
 
@@ -191,32 +205,59 @@ async def ask_question(question_request: QuestionRequest):
         if not question:
             raise HTTPException(status_code=400, detail="问题不能为空")
         
+        print_info(f"收到问题: {question}")
+        
         # 使用 qa_chain 进行问答
+        print_loading("正在检索相关文档...")
         response = qa_chain({"query": question})
+        print_success("文档检索完成")
         
         # 格式化源文档
         source_docs = []
         if response.get('source_documents'):
+            print_info(f"找到 {len(response['source_documents'])} 个相关文档")
             for doc in response['source_documents']:
                 source_docs.append({
                     "page_content": doc.page_content,
                     "metadata": doc.metadata
                 })
         
+        print_success("问答处理完成")
         return AnswerResponse(
             answer=response['result'],
             source_documents=source_docs,
             question=question
         )
         
+    except KeyError as e:
+        error_msg = f"环境变量配置错误: {str(e)}"
+        print_error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
+    except ConnectionError as e:
+        error_msg = f"网络连接错误: {str(e)}"
+        print_error(error_msg)
+        raise HTTPException(status_code=500, detail=error_msg)
     except Exception as e:
-        print_error(f"处理问题时出错: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"处理问题时出错: {str(e)}")
+        error_msg = f"处理问题时出错: {str(e)}"
+        print_error(error_msg)
+        print_error(f"错误类型: {type(e).__name__}")
+        import traceback
+        print_error(f"详细错误: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=error_msg)
 
 @app.get("/health")
 async def health_check():
     """健康检查端点"""
     return {"status": "healthy", "message": "文档问答系统运行正常"}
+
+@app.get("/test_api")
+async def test_api():
+    """测试API连接"""
+    try:
+        test_response = chat_model.invoke("测试连接")
+        return {"status": "success", "message": "API连接正常", "response": test_response.content}
+    except Exception as e:
+        return {"status": "error", "message": f"API连接失败: {str(e)}"}
 
 @app.get("/docs_count")
 async def get_documents_count():
@@ -237,13 +278,13 @@ if __name__ == "__main__":
     print_info("系统正在初始化，请耐心等待...")
     print_info("文档加载完成")
     print_model("AI模型准备就绪")
-    print_server("Web界面: http://localhost:8000")
-    print_server("API文档: http://localhost:8000/docs")
+    print_server("Web界面: http://localhost:8001")
+    print_server("API文档: http://localhost:8001/docs")
     print_success("系统启动完成！")
     
     uvicorn.run(
         app, 
         host="0.0.0.0", 
-        port=8000,
+        port=8001,  # 更换为8001端口
         reload=False  # 生产环境建议设为False
     )
