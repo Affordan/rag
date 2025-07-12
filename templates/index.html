@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>文档问答系统</title>
+    <style>
+      /* --- (原有CSS样式保持不变) --- */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        min-height: 100vh;
+        padding: 20px;
+      }
+
+      .container {
+        max-width: 1000px;
+        margin: 0 auto;
+        background: white;
+        border-radius: 20px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+      }
+
+      .header {
+        background: linear-gradient(45deg, #3498db, #2c3e50);
+        color: white;
+        padding: 30px;
+        text-align: center;
+      }
+
+      .header h1 {
+        font-size: 2.5em;
+        margin-bottom: 10px;
+      }
+
+      .header p {
+        font-size: 1.1em;
+        opacity: 0.9;
+      }
+
+      .chat-container {
+        height: 600px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .messages {
+        flex: 1;
+        padding: 20px;
+        overflow-y: auto;
+        background: #f8f9fa;
+      }
+
+      .message {
+        margin-bottom: 20px;
+        padding: 15px;
+        border-radius: 15px;
+        max-width: 80%;
+        animation: fadeIn 0.5s ease-in;
+      }
+
+      .user-message {
+        background: #007bff;
+        color: white;
+        margin-left: auto;
+        border-bottom-right-radius: 5px;
+      }
+
+      .bot-message {
+        background: white;
+        border: 1px solid #e9ecef;
+        border-bottom-left-radius: 5px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      }
+
+      .message-header {
+        font-weight: bold;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+
+      .user-message .message-header {
+        color: #e3f2fd;
+      }
+
+      .bot-message .message-header {
+        color: #6c757d;
+      }
+      
+      /* --- MODIFICATION START: 新增模型选择器样式 --- */
+      .model-selector-container {
+        padding: 10px 20px;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .model-selector-container label {
+        font-weight: bold;
+        color: #495057;
+      }
+      #modelSelector {
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: 1px solid #ced4da;
+      }
+      /* --- MODIFICATION END --- */
+
+      .source-docs {
+        margin-top: 15px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border-left: 4px solid #007bff;
+      }
+
+      .source-docs h4 {
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+      }
+
+      .source-doc {
+        background: white;
+        padding: 8px;
+        margin: 5px 0;
+        border-radius: 5px;
+        font-size: 0.85em;
+        border: 1px solid #dee2e6;
+      }
+
+      .input-container {
+        padding: 20px;
+        background: white;
+        border-top: 1px solid #e9ecef;
+      }
+
+      .input-form {
+        display: flex;
+        gap: 10px;
+      }
+
+      .question-input {
+        flex: 1;
+        padding: 15px 20px;
+        border: 2px solid #e9ecef;
+        border-radius: 25px;
+        font-size: 16px;
+        outline: none;
+        transition: border-color 0.3s ease;
+      }
+
+      .question-input:focus {
+        border-color: #007bff;
+      }
+
+      .send-button {
+        padding: 15px 30px;
+        background: linear-gradient(45deg, #007bff, #0056b3);
+        color: white;
+        border: none;
+        border-radius: 25px;
+        cursor: pointer;
+        font-size: 16px;
+        font-weight: bold;
+        transition: transform 0.2s ease;
+      }
+
+      .send-button:hover {
+        transform: translateY(-2px);
+      }
+
+      .send-button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+        color: #6c757d;
+      }
+
+      .loading.show {
+        display: block;
+      }
+
+      .spinner {
+        border: 3px solid #f3f3f3;
+        border-top: 3px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 10px;
+      }
+
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+
+      @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      .welcome-message {
+        text-align: center;
+        color: #6c757d;
+        padding: 40px 20px;
+        font-size: 1.1em;
+      }
+
+      .example-questions { margin-top: 20px; }
+      .example-question { display: inline-block; background: #e3f2fd; color: #1976d2; padding: 8px 15px; margin: 5px; border-radius: 20px; cursor: pointer; transition: background 0.3s ease; font-size: 0.9em; }
+      .example-question:hover { background: #bbdefb; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>🤖 智能文档问答系统</h1>
+        <p>基于AI的文档检索与问答平台</p>
+      </div>
+
+      <div class="chat-container">
+        <div class="messages" id="messages">
+          <div class="welcome-message">
+            <h3>👋 欢迎使用文档问答系统</h3>
+            <p>请输入您的问题，我会根据文档内容为您提供准确的答案</p>
+            <div class="example-questions">
+              <div class="example-question" onclick="setQuestion('请问落日六号停留在地球的哪里？')">请问落日六号停留在地球的哪里？</div>
+              <div class="example-question" onclick="setQuestion('刘慈欣的作品中有哪些科幻元素？')">刘慈欣的作品中有哪些科幻元素？</div>
+              <div class="example-question" onclick="setQuestion('三体系列的主要情节是什么？')">三体系列的主要情节是什么？</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="model-selector-container">
+            <label for="modelSelector">选择模型:</label>
+            <select id="modelSelector"></select>
+        </div>
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>正在思考中，请稍候...</p>
+        </div>
+
+        <div class="input-container">
+          <form class="input-form" onsubmit="sendQuestion(event)">
+            <input type="text" class="question-input" id="questionInput" placeholder="请输入您的问题..." required />
+            <button type="submit" class="send-button" id="sendButton">发送 📤</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const messagesContainer = document.getElementById("messages");
+      const questionInput = document.getElementById("questionInput");
+      const sendButton = document.getElementById("sendButton");
+      const loading = document.getElementById("loading");
+      // --- MODIFICATION START: 获取模型选择器元素 ---
+      const modelSelector = document.getElementById("modelSelector");
+      // --- MODIFICATION END ---
+
+      function setQuestion(question) {
+        questionInput.value = question;
+        questionInput.focus();
+      }
+      
+      // --- MODIFICATION START: 更新 addMessage 函数以显示使用的模型 ---
+      function addMessage(content, isUser = false, sourceDocs = null, modelUsed = null) {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${isUser ? "user-message" : "bot-message"}`;
+        
+        let headerText = isUser ? "👤 您" : `🤖 AI助手 (${modelUsed || 'default'})`;
+
+        let messageHTML = `
+                <div class="message-header">${headerText}</div>
+                <div class="message-content">${content.replace(/\n/g, '<br>')}</div>
+            `;
+
+        if (sourceDocs && sourceDocs.length > 0) {
+          messageHTML += `
+                    <div class="source-docs">
+                        <h4>📚 参考文档：</h4>
+                        ${sourceDocs
+                          .map(doc => `
+                            <div class="source-doc">
+                                <strong>来源：</strong>${doc.metadata?.source || "未知"}<br>
+                                <strong>内容片段：</strong>${doc.page_content.substring(0, 100)}...
+                            </div>
+                        `).join("")}
+                    </div>
+                `;
+        }
+
+        messageDiv.innerHTML = messageHTML;
+        
+        const welcomeMessage = messagesContainer.querySelector(".welcome-message");
+        if (welcomeMessage) {
+          welcomeMessage.remove();
+        }
+
+        messagesContainer.appendChild(messageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+      // --- MODIFICATION END ---
+
+
+      function showLoading() {
+        loading.classList.add("show");
+        sendButton.disabled = true;
+        sendButton.textContent = "处理中...";
+      }
+
+      function hideLoading() {
+        loading.classList.remove("show");
+        sendButton.disabled = false;
+        sendButton.textContent = "发送 📤";
+      }
+
+      async function sendQuestion(event) {
+        event.preventDefault();
+        const question = questionInput.value.trim();
+        if (!question) return;
+
+        addMessage(question, true);
+        questionInput.value = "";
+        showLoading();
+
+        try {
+          // --- MODIFICATION START: 在请求体中加入所选模型 ---
+          const selectedModel = modelSelector.value;
+          const response = await fetch("/ask", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ question: question, model: selectedModel }),
+          });
+          // --- MODIFICATION END ---
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
+          }
+
+          const data = await response.json();
+          // --- MODIFICATION START: 传入模型名称到 addMessage ---
+          addMessage(data.answer, false, data.source_documents, data.model_used);
+          // --- MODIFICATION END ---
+        } catch (error) {
+          console.error("Error:", error);
+          addMessage(`抱歉，处理您的问题时出现了错误: ${error.message}`, false, null, "系统");
+        } finally {
+          hideLoading();
+          questionInput.focus();
+        }
+      }
+      
+      // --- MODIFICATION START: 新增函数，用于从后端获取可用模型列表 ---
+      async function fetchAndPopulateModels() {
+          try {
+              const response = await fetch('/get_models');
+              if (!response.ok) {
+                  throw new Error('无法获取模型列表');
+              }
+              const data = await response.json();
+              const models = data.models;
+
+              if (models && models.length > 0) {
+                  modelSelector.innerHTML = ''; // 清空选项
+                  models.forEach(model => {
+                      const option = document.createElement('option');
+                      option.value = model;
+                      option.textContent = model;
+                      modelSelector.appendChild(option);
+                  });
+              } else {
+                  modelSelector.innerHTML = '<option value="">无可用模型</option>';
+                  modelSelector.disabled = true;
+              }
+          } catch (error) {
+              console.error('获取模型列表失败:', error);
+              modelSelector.innerHTML = '<option value="">加载失败</option>';
+              modelSelector.disabled = true;
+          }
+      }
+      // --- MODIFICATION END ---
+      
+      // --- MODIFICATION START: 页面加载完成后，获取模型列表并聚焦输入框 ---
+      window.addEventListener("load", () => {
+        fetchAndPopulateModels();
+        questionInput.focus();
+      });
+      // --- MODIFICATION END ---
+
+      questionInput.addEventListener("keypress", (e) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          // 确保表单的onsubmit事件被触发
+          document.querySelector(".input-form").requestSubmit();
+        }
+      });
+    </script>
+  </body>
+</html>
